@@ -18,7 +18,7 @@
                     Clicked="OnSelectImageClicked" 
                     HorizontalOptions="Center" />
 
-            <Border BackgroundColor="{AppThemeBinding Light=OffWhite, Dark=DarkSlateGray}"
+            <Border BackgroundColor="{AppThemeBinding Light=White, Dark=DarkSlateGray}"
                     x:Name="ExifDataFrame"
                     IsVisible="False"
                     StrokeThickness="1"

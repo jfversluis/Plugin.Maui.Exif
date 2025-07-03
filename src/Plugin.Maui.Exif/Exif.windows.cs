@@ -3,6 +3,7 @@ using Windows.Graphics.Imaging;
 using Windows.Storage;
 using Windows.Storage.Streams;
 using System.Globalization;
+using Windows.Foundation;
 
 namespace Plugin.Maui.Exif;
 
@@ -97,7 +98,7 @@ partial class ExifImplementation : IExif
                     exifData.AllTags[property.Key] = ConvertBitmapTypedValue(property.Value);
                 }
             }
-
+            
             return exifData;
         }
         catch (Exception)
@@ -106,7 +107,7 @@ partial class ExifImplementation : IExif
         }
     }
 
-    private static async Task ExtractBasicProperties(BitmapProperties properties, ExifData exifData)
+    private static async Task ExtractBasicProperties(BitmapPropertiesView properties, ExifData exifData)
     {
         var propertiesToRead = new[]
         {
@@ -180,7 +181,7 @@ partial class ExifImplementation : IExif
         }
     }
 
-    private static async Task ExtractCameraProperties(BitmapProperties properties, ExifData exifData)
+    private static async Task ExtractCameraProperties(BitmapPropertiesView properties, ExifData exifData)
     {
         var propertiesToRead = new[]
         {
@@ -242,7 +243,7 @@ partial class ExifImplementation : IExif
         }
     }
 
-    private static async Task ExtractGpsProperties(BitmapProperties properties, ExifData exifData)
+    private static async Task ExtractGpsProperties(BitmapPropertiesView properties, ExifData exifData)
     {
         var propertiesToRead = new[]
         {
