@@ -1,53 +1,177 @@
-# Plugin.Maui.Feature Template
+# Plugin.Maui.Exif
 
-The `Plugin.Maui.Feature` repository is a template repository that can be used to bootstrap your own .NET MAUI plugin project. You can use this project structure as a blueprint for your own work.
+`Plugin.Maui.Exif` provides the ability to read EXIF metadata from image files in your .NET MAUI application across iOS, Android, and Windows platforms.
 
-Learn how to get started with your plugin in this [YouTube video](https://www.youtube.com/watch?v=ZCQrlGT7MhI&list=PLfbOp004UaYVgzmTBNVI0ql2qF0LhSEU1&index=27).
+## Features
 
-This template contains:
+- Read EXIF metadata from image files and streams
+- Extract common metadata like camera make/model, date taken, GPS coordinates, camera settings
+- Cross-platform support (iOS, macOS Catalyst, Android, Windows)
+- Easy-to-use API with both static and dependency injection patterns
+- Extension methods for common EXIF data operations
 
-- A [sample .NET MAUI app](samples) where you can demonstrate how your plugin works and test your plugin with while developing
-- The [source](src) of the plugin
-- A boilerplate [README file](README_Feature.md) you can use (don't forget to rename to `README.md` and remove this one!)
-- [GitHub Actions for CI](.github/workflows) of the library and the sample app
-- [GitHub Action for releasing](.github/workflows) your package to NuGet
-- A [generic icon](nuget.png) for your project, feel free to adapt and be creative!
-- The [LICENSE](LICENSE) file with the MIT license. If you want this to be different, please change it. At the very least add your name in there!
+## Installation
 
-## Getting Started
+```xml
+<PackageReference Include="Plugin.Maui.Exif" Version="1.0.0" />
+```
 
-1. Create your own GitHub repository from this one by clicking the "Use this template" button and then "Create a new repository". More information in the [documentation](https://docs.github.com/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template). After that, clone the repo to your local machine.
+## Usage
 
-2. Replace all occurrences of `Plugin.Maui.Feature` with whatever your feature or functionality will be. For instance: `Plugin.Maui.ScreenBrightness` or `Plugin.Maui.Audio`. Of course the name can be anything, but to make it more discoverable it could be a great choice to stick to this naming scheme. You can easily do this with your favorite text-editor and do a replace all on all files.
+### Basic Usage
 
-   2.1 Don't forget to also rename the files and folders on your filesystem.
+```csharp
+// Using the static API
+var exifData = await Exif.Default.ReadFromFileAsync(imagePath);
 
-3. In the csproj file of the plugin project (under `src`), make sure that you replace all relevant values to your project. This means the author of this project, the description of the project, the target framework (.NET 7, 8 or something else). If you don't want to or can't support a certain platform, remove that target platform altogether.
+// Using dependency injection
+builder.Services.AddSingleton<IExif>(Exif.Default);
 
-4. Delete this `README.md` file and rename `README_Feature.md` to `README.md`. Fill that README file with all the relevant details of your project.
+// In your class
+public MainPage(IExif exif)
+{
+    var exifData = await exif.ReadFromFileAsync(imagePath);
+}
+```
 
-5. Check the LICENSE file if this reflects the license that you want to distribute your project under. At the very least add your name there and the current year we live in.
+### Reading EXIF Data
 
-6. Create a nice icon in the `nuget.png` file that will show up on nuget.org and in the NuGet manager in Visual Studio.
+```csharp
+var exifData = await Exif.Default.ReadFromFileAsync("path/to/image.jpg");
 
-7. Write your plugin code (under `src`) and add samples to the .NET MAUI sample app (under `samples` folder)
+if (exifData != null)
+{
+    // Basic image info
+    Console.WriteLine($"Camera: {exifData.Make} {exifData.Model}");
+    Console.WriteLine($"Date taken: {exifData.DateTaken}");
+    Console.WriteLine($"Dimensions: {exifData.Width}x{exifData.Height}");
+    
+    // Camera settings
+    Console.WriteLine($"F-number: f/{exifData.FNumber}");
+    Console.WriteLine($"Exposure time: {exifData.ExposureTime}s");
+    Console.WriteLine($"ISO: {exifData.Iso}");
+    Console.WriteLine($"Focal length: {exifData.FocalLength}mm");
+    
+    // GPS coordinates
+    if (exifData.HasGpsCoordinates())
+    {
+        Console.WriteLine($"Location: {exifData.Latitude}, {exifData.Longitude}");
+        Console.WriteLine($"Altitude: {exifData.Altitude}m");
+    }
+}
+```
 
-8. Make super sure that your package won't show up as `Plugin.Maui.Feature` on NuGet! If one does, you owe me a drink!
+### Reading from Stream
 
-9. Publish your package to NuGet, a nice guide to do that can be found [here](https://learn.microsoft.com/nuget/nuget-org/publish-a-package). Also see [Publish to NuGet](#publish-to-nuget) below.
+```csharp
+using var stream = File.OpenRead("path/to/image.jpg");
+var exifData = await Exif.Default.ReadFromStreamAsync(stream);
+```
 
-10. Enjoy life as a .NET MAUI plugin author! ✨
+### Extension Methods
 
-As an example of all of this you can have a look at:
+The plugin includes useful extension methods:
 
-- [Plugin.Maui.Audio](https://github.com/jfversluis/Plugin.Maui.Audio)
-- [Plugin.Maui.Pedometer](https://github.com/jfversluis/Plugin.Maui.Pedometer)
-- [Plugin.Maui.ScreenBrightness](https://github.com/jfversluis/Plugin.Maui.ScreenBrightness)
+```csharp
+// Check if GPS coordinates are available
+if (exifData.HasGpsCoordinates())
+{
+    // Get formatted GPS string
+    var coordinates = exifData.GetFormattedGpsCoordinates();
+    // Result: "37.421998°N, 122.084000°W"
+}
 
-## Publish to NuGet
+// Get formatted camera settings
+var settings = exifData.GetFormattedCameraSettings();
+// Result: "f/2.2, 1/120s, ISO 100, 24mm"
 
-If you want to publish your package to NuGet, you totally can! Included in this template are a couple of GitHub Actions. One of them goes of when you create a new tag with this pattern: `v1.0.0` or `v1.0.0-preview1`. Obviously the `1.0.0` part can be determined by you as you see fit, as long as you follow the pattern of 3 integers separated by dots.
+// Get camera information
+var camera = exifData.GetCameraInfo();
+// Result: "Apple iPhone 12 Pro"
 
-You will also want to set a secret for this repository which contains your NuGet API key. Follow the documentation on that [here](https://docs.github.com/actions/security-guides/encrypted-secrets#creating-encrypted-secrets-for-a-repository), and add a secret with the key `NUGET_API_KEY` and value of your NuGet API key. The API key should be authorized to push a NuGet package with the given identifier. 
+// Check if image needs rotation
+if (exifData.NeedsRotation())
+{
+    var angle = exifData.GetRotationAngle();
+    // Rotate the image by the returned angle
+}
+```
+
+## Available EXIF Properties
+
+### Basic Image Information
+- `Width` / `Height` - Image dimensions
+- `Orientation` - Image orientation
+- `DateTaken` - Date and time the photo was taken
+
+### Camera Information
+- `Make` - Camera manufacturer
+- `Model` - Camera model
+- `Software` - Software used to process the image
+
+### Camera Settings
+- `FNumber` - Aperture f-number
+- `ExposureTime` - Shutter speed in seconds
+- `Iso` - ISO sensitivity
+- `FocalLength` - Focal length in millimeters
+- `Flash` - Flash mode used
+
+### GPS Information
+- `Latitude` - GPS latitude
+- `Longitude` - GPS longitude
+- `Altitude` - GPS altitude in meters
+
+### Additional Information
+- `Copyright` - Copyright information
+- `Artist` - Photographer/artist name
+- `ImageDescription` - Image description or comment
+- `AllTags` - Dictionary containing all available EXIF tags
+
+## Platform Support
+
+| Platform | Supported | Implementation |
+|----------|-----------|----------------|
+| iOS | ✅ | ImageIO Framework |
+| macOS Catalyst | ✅ | ImageIO Framework |
+| Android | ✅ | AndroidX ExifInterface |
+| Windows | ✅ | Windows Runtime BitmapDecoder |
+
+## Permissions
+
+### Android
+Add the following permissions to your `AndroidManifest.xml`:
+
+```xml
+<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+```
+
+### iOS
+No special permissions required for reading EXIF data from files accessible to your app.
+
+### Windows
+No special permissions required.
+
+## Sample App
+
+The repository includes a sample app demonstrating how to:
+- Select images using FilePicker
+- Read and display EXIF metadata
+- Show formatted camera settings and GPS information
+- Display all available EXIF tags
+
+## Future Enhancements
+
+- Writing EXIF metadata (planned for future versions)
+- Additional metadata formats support
+- Batch processing capabilities
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License. 
 
 From there, after [creating a GitHub release](https://docs.github.com/repositories/releasing-projects-on-github/managing-releases-in-a-repository) your plugin will be automatically released on NuGet!

@@ -1,0 +1,63 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Plugin.Maui.Exif.Sample.MainPage"
+             Title="EXIF Plugin Demo - Camera and Gallery">
+
+    <ScrollView>
+        <VerticalStackLayout Spacing="25" Padding="30,0" VerticalOptions="Center">
+
+            <Image x:Name="SelectedImage" 
+                   IsVisible="False"
+                   Aspect="AspectFit"
+                   HeightRequest="300" />
+
+            <Button x:Name="SelectImageBtn" 
+                    Text="Take Photo or Select Image" 
+                    SemanticProperties.Hint="Take a photo or select an image to read EXIF data"
+                    Clicked="OnSelectImageClicked" 
+                    HorizontalOptions="Center" />
+
+            <Border BackgroundColor="{AppThemeBinding Light=OffWhite, Dark=DarkSlateGray}"
+                    x:Name="ExifDataFrame"
+                    IsVisible="False"
+                    StrokeThickness="1"
+                    Stroke="{AppThemeBinding Light=LightGray, Dark=Gray}"
+                    Padding="15"
+                    Margin="10">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="10"/>
+                </Border.StrokeShape>
+                <VerticalStackLayout>
+                    <Label Text="EXIF Information" 
+                           FontAttributes="Bold" 
+                           FontSize="18" 
+                           HorizontalOptions="Center" />
+                    
+                    <Label x:Name="CameraInfoLabel" 
+                           FontAttributes="Bold" />
+                    
+                    <Label x:Name="CameraSettingsLabel" />
+                    
+                    <Label x:Name="DateTakenLabel" />
+                    
+                    <Label x:Name="DimensionsLabel" />
+                    
+                    <Label x:Name="GpsLabel" />
+                    
+                    <Label x:Name="OrientationLabel" />
+                    
+                    <StackLayout Margin="0,10,0,0">
+                        <Label Text="All EXIF Tags" 
+                               FontAttributes="Bold" />
+                        <Label x:Name="AllTagsLabel" 
+                               FontFamily="Courier"
+                               FontSize="12" />
+                    </StackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>
