@@ -72,10 +72,7 @@ partial class ExifImplementation : IExif
             try
             {
                 var exifInterface = new ExifInterface(filePath);
-                var gpsLat = exifInterface.GetAttribute(ExifInterface.TagGpsLatitude);
-                var gpsLon = exifInterface.GetAttribute(ExifInterface.TagGpsLongitude);
-                
-                return !string.IsNullOrEmpty(gpsLat) && !string.IsNullOrEmpty(gpsLon);
+                return exifInterface.GetLatLong() is not null;
             }
             catch (Exception)
             {
@@ -96,10 +93,7 @@ partial class ExifImplementation : IExif
             try
             {
                 var exifInterface = new ExifInterface(stream);
-                var gpsLat = exifInterface.GetAttribute(ExifInterface.TagGpsLatitude);
-                var gpsLon = exifInterface.GetAttribute(ExifInterface.TagGpsLongitude);
-                
-                return !string.IsNullOrEmpty(gpsLat) && !string.IsNullOrEmpty(gpsLon);
+                return exifInterface.GetLatLong() is not null;
             }
             catch (Exception)
             {
@@ -193,45 +187,64 @@ partial class ExifImplementation : IExif
 
     private static void ExtractGpsData(ExifInterface exifInterface, ExifData exifData)
     {
-        // Get GPS coordinates
-        var gpsLat = exifInterface.GetAttribute(ExifInterface.TagGpsLatitude);
-        var gpsLatRef = exifInterface.GetAttribute(ExifInterface.TagGpsLatitudeRef);
-        var gpsLon = exifInterface.GetAttribute(ExifInterface.TagGpsLongitude);
-        var gpsLonRef = exifInterface.GetAttribute(ExifInterface.TagGpsLongitudeRef);
-
-        if (!string.IsNullOrEmpty(gpsLat) && !string.IsNullOrEmpty(gpsLon))
+        // Try the convenient GetLatLong method first
+        var latLong = exifInterface.GetLatLong();
+        if (latLong is not null)
         {
-            if (ParseGpsCoordinate(gpsLat, out var latitude) && 
-                ParseGpsCoordinate(gpsLon, out var longitude))
-            {
-                // Apply hemisphere reference
-                if (gpsLatRef == "S")
-                {
-                    latitude = -latitude;
-                }
-                if (gpsLonRef == "W")
-                {
-                    longitude = -longitude;
-                }
+            exifData.Latitude = latLong[0];
+            exifData.Longitude = latLong[1];
+        }
+        else
+        {
+            // Fall back to manual parsing if GetLatLong fails
+            var gpsLat = exifInterface.GetAttribute(ExifInterface.TagGpsLatitude);
+            var gpsLatRef = exifInterface.GetAttribute(ExifInterface.TagGpsLatitudeRef);
+            var gpsLon = exifInterface.GetAttribute(ExifInterface.TagGpsLongitude);
+            var gpsLonRef = exifInterface.GetAttribute(ExifInterface.TagGpsLongitudeRef);
 
-                exifData.Latitude = latitude;
-                exifData.Longitude = longitude;
+            if (!string.IsNullOrEmpty(gpsLat) && !string.IsNullOrEmpty(gpsLon))
+            {
+                if (ParseGpsCoordinate(gpsLat, out var latitude) && 
+                    ParseGpsCoordinate(gpsLon, out var longitude))
+                {
+                    // Apply hemisphere reference
+                    if (gpsLatRef == "S")
+                    {
+                        latitude = -latitude;
+                    }
+                    if (gpsLonRef == "W")
+                    {
+                        longitude = -longitude;
+                    }
+
+                    exifData.Latitude = latitude;
+                    exifData.Longitude = longitude;
+                }
             }
         }
 
         // Get GPS altitude
-        var gpsAltitude = exifInterface.GetAttribute(ExifInterface.TagGpsAltitude);
-        var gpsAltitudeRef = exifInterface.GetAttribute(ExifInterface.TagGpsAltitudeRef);
-        
-        if (!string.IsNullOrEmpty(gpsAltitude) && ParseFraction(gpsAltitude, out var altitude))
+        var altitude = exifInterface.GetAltitude(double.MinValue);
+        if (altitude != double.MinValue)
         {
-            // GPS altitude reference: 0 = above sea level, 1 = below sea level
-            if (gpsAltitudeRef == "1")
-            {
-                altitude = -altitude;
-            }
-            
             exifData.Altitude = altitude;
+        }
+        else
+        {
+            // Fall back to manual parsing for altitude
+            var gpsAltitude = exifInterface.GetAttribute(ExifInterface.TagGpsAltitude);
+            var gpsAltitudeRef = exifInterface.GetAttribute(ExifInterface.TagGpsAltitudeRef);
+            
+            if (!string.IsNullOrEmpty(gpsAltitude) && ParseFraction(gpsAltitude, out var alt))
+            {
+                // GPS altitude reference: 0 = above sea level, 1 = below sea level
+                if (gpsAltitudeRef == "1")
+                {
+                    alt = -alt;
+                }
+                
+                exifData.Altitude = alt;
+            }
         }
     }
 
