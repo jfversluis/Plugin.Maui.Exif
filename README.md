@@ -148,11 +148,42 @@ Add the following permissions to your `AndroidManifest.xml`:
 <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 ```
 
+#### GPS Metadata on Android
+For reading GPS location data from images captured or selected using `MediaPicker` (e.g., `CapturePhotoAsync()` or `PickPhotoAsync()`), you must also include:
+
+```xml
+<uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
+```
+
+**Important:** Due to Android privacy restrictions, images obtained through `MediaPicker` APIs may have their GPS metadata stripped unless the `ACCESS_MEDIA_LOCATION` permission is explicitly requested. Without this permission, you may still receive other EXIF metadata (camera settings, date taken, etc.) but GPS coordinates will be missing even if the original image contains location data.
+
+This limitation affects:
+- Images captured using `MediaPicker.Default.CapturePhotoAsync()`
+- Images selected using `MediaPicker.Default.PickPhotoAsync()`
+
+Images accessed directly via file paths (e.g., using `FilePicker`) are not affected by this limitation.
+
 ### iOS
 No special permissions required for reading EXIF data from files accessible to your app.
 
 ### Windows
 No special permissions required.
+
+## Known Limitations
+
+### Android GPS Metadata with MediaPicker
+On Android, when using `MediaPicker.Default.CapturePhotoAsync()` or `MediaPicker.Default.PickPhotoAsync()`, GPS location metadata may be missing from the resulting EXIF data due to Android's privacy restrictions. This is a platform limitation, not a plugin issue.
+
+**Symptoms:**
+- Other EXIF metadata (camera make/model, date taken, camera settings) is present
+- GPS coordinates (`Latitude`, `Longitude`, `Altitude`) are missing or null
+- `HasGpsCoordinates()` returns false even when the original image contains location data
+
+**Solution:**
+Add the `ACCESS_MEDIA_LOCATION` permission to your Android manifest (see Permissions section above).
+
+**Workaround:**
+If you cannot request the `ACCESS_MEDIA_LOCATION` permission, use `FilePicker` instead of `MediaPicker` for selecting images, as file picker access is not affected by this limitation.
 
 ## Sample App
 
