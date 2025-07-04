@@ -2,6 +2,8 @@
 
 `Plugin.Maui.Exif` provides the ability to read EXIF metadata from image files in your .NET MAUI application across iOS, Android, and Windows platforms.
 
+Learn more about this plugin in [this video](https://youtu.be/plT4Tsd6ORI).
+
 ## Features
 
 - Read EXIF metadata from image files and streams
