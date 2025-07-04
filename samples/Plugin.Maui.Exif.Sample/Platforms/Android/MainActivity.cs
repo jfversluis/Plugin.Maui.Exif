@@ -11,7 +11,6 @@ namespace Plugin.Maui.Feature.Sample;
 public class MainActivity : MauiAppCompatActivity
 {
     const int RequestMediaLocationId = 1001;
-    const int RequestReadImagesId = 1002;
 
     protected override void OnCreate(Bundle savedInstanceState)
     {
