@@ -147,6 +147,12 @@ Add the following permissions to your `AndroidManifest.xml`:
 <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
 <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 ```
+> [!NOTE]
+> When using `MediaPicker.PickPhotoAsync()`, the selected image may not include GPS EXIF data due to Android privacy restrictions (API 29+).  
+> To access GPS metadata in this case, you must declare and request the `ACCESS_MEDIA_LOCATION` runtime permission.
+>
+> When using `MediaPicker.CapturePhotoAsync()`, the GPS data may be missing unless your app has location permissions (`ACCESS_FINE_LOCATION` or `ACCESS_COARSE_LOCATION`) and the selected camera app supports embedding location info.  
+> Note that the camera app behavior varies across devices and cannot be controlled by your app.
 
 ### iOS
 No special permissions required for reading EXIF data from files accessible to your app.
