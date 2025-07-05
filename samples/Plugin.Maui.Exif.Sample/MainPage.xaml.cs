@@ -14,6 +14,13 @@ public partial class MainPage : ContentPage
         this.exif = exif;
     }
 
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        await PermissionUtility.RequestLocationPermissionAsync();
+        await PermissionUtility.RequestMediaLocationPermissionAsync();
+    }
+
     private async void OnSelectImageClicked(object sender, EventArgs e)
     {
         try
