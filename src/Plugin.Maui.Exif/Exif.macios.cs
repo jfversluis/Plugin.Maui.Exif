@@ -316,7 +316,7 @@ partial class ExifImplementation : IExif
                     return false;
                 }
 
-                using var image = sourceImageSource.CreateImage(0, null);
+                using var image = sourceImageSource.CreateImage(0, null!);
                 if (image is null)
                 {
                     return false;
@@ -325,7 +325,7 @@ partial class ExifImplementation : IExif
                 // Create a temporary file to avoid corruption during write
                 var tempFilePath = $"{filePath}.tmp";
                 using var destinationUrl = NSUrl.FromFilename(tempFilePath);
-                using var destination = CGImageDestination.Create(destinationUrl, sourceImageSource.TypeIdentifier, 1);
+                using var destination = CGImageDestination.Create(destinationUrl, sourceImageSource.TypeIdentifier!, 1);
                 
                 if (destination is null)
                 {
@@ -385,14 +385,14 @@ partial class ExifImplementation : IExif
                     return false;
                 }
 
-                using var image = sourceImageSource.CreateImage(0, null);
+                using var image = sourceImageSource.CreateImage(0, null!);
                 if (image is null)
                 {
                     return false;
                 }
 
                 using var outputData = new NSMutableData();
-                using var destination = CGImageDestination.Create(outputData, sourceImageSource.TypeIdentifier, 1);
+                using var destination = CGImageDestination.Create(outputData, sourceImageSource.TypeIdentifier!, 1);
                 
                 if (destination is null)
                 {
@@ -489,7 +489,7 @@ partial class ExifImplementation : IExif
 
         if (!string.IsNullOrEmpty(exifData.Copyright))
         {
-            tiffDict.SetValueForKey(new NSString(exifData.Copyright), CGImageProperties.TIFFCopyright);
+            tiffDict.SetValueForKey(new NSString(exifData.Copyright), new NSString("Copyright"));
         }
 
         properties.SetValueForKey(tiffDict, new NSString("{TIFF}"));

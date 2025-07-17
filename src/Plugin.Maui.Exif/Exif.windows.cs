@@ -4,6 +4,7 @@ using Windows.Storage;
 using Windows.Storage.Streams;
 using System.Globalization;
 using Windows.Foundation;
+using Windows.Foundation.Collections;
 
 namespace Plugin.Maui.Exif;
 
@@ -336,7 +337,8 @@ partial class ExifImplementation : IExif
             var decoder = await BitmapDecoder.CreateAsync(inputStream);
             
             // Create a temporary file for writing
-            var tempFile = await file.GetParentAsync().CreateFileAsync($"{file.Name}.tmp", 
+            var parentFolder = await file.GetParentAsync();
+            var tempFile = await parentFolder.CreateFileAsync($"{file.Name}.tmp", 
                 CreationCollisionOption.ReplaceExisting);
             
             try
@@ -534,7 +536,22 @@ partial class ExifImplementation : IExif
         // Set all properties at once
         try
         {
-            await properties.SetPropertiesAsync(propertiesToSet);
+            var convertedProperties = propertiesToSet.Select(kvp => 
+                new KeyValuePair<string, BitmapTypedValue>(kvp.Key, 
+                    kvp.Value switch
+                    {
+                        string s => new BitmapTypedValue(s, PropertyType.String),
+                        int i => new BitmapTypedValue(i, PropertyType.Int32),
+                        uint ui => new BitmapTypedValue(ui, PropertyType.UInt32),
+                        ushort us => new BitmapTypedValue(us, PropertyType.UInt16),
+                        byte b => new BitmapTypedValue(b, PropertyType.UInt8),
+                        double d => new BitmapTypedValue(d, PropertyType.Double),
+                        DateTimeOffset dto => new BitmapTypedValue(dto, PropertyType.DateTime),
+                        double[] da => new BitmapTypedValue(da, PropertyType.DoubleArray),
+                        string[] sa => new BitmapTypedValue(sa, PropertyType.StringArray),
+                        _ => new BitmapTypedValue(kvp.Value, PropertyType.String)
+                    }));
+            await properties.SetPropertiesAsync(convertedProperties);
         }
         catch (Exception)
         {
