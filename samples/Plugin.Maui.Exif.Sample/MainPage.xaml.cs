@@ -1,5 +1,6 @@
 ﻿using Plugin.Maui.Exif;
 using Plugin.Maui.Exif.Extensions;
+using Plugin.Maui.Exif.Models;
 using System.Text;
 
 namespace Plugin.Maui.Exif.Sample;
@@ -7,6 +8,8 @@ namespace Plugin.Maui.Exif.Sample;
 public partial class MainPage : ContentPage
 {
     readonly IExif exif;
+    private string currentImagePath;
+    private ExifData currentExifData;
 
     public MainPage(IExif exif)
     {
@@ -69,6 +72,9 @@ public partial class MainPage : ContentPage
 
             if (result is not null)
             {
+                // Store the current image path for writing operations
+                currentImagePath = result.FullPath;
+                
                 // Display the selected image
                 SelectedImage.Source = ImageSource.FromFile(result.FullPath);
                 SelectedImage.IsVisible = true;
@@ -78,13 +84,16 @@ public partial class MainPage : ContentPage
 
                 if (exifData is not null)
                 {
+                    currentExifData = exifData;
                     DisplayExifData(exifData);
                     ExifDataFrame.IsVisible = true;
+                    WriteButtons.IsVisible = true; // Show writing options
                 }
                 else
                 {
                     await DisplayAlert("No EXIF Data", "This image doesn't contain EXIF metadata.", "OK");
                     ExifDataFrame.IsVisible = false;
+                    WriteButtons.IsVisible = false;
                 }
             }
         }
@@ -136,5 +145,124 @@ public partial class MainPage : ContentPage
             allTagsText.AppendLine($"{tag.Key}: {tag.Value}");
         }
         AllTagsLabel.Text = allTagsText.Length > 0 ? allTagsText.ToString() : "No additional tags found";
+    }
+
+    private async void OnAddCopyrightClicked(object sender, EventArgs e)
+    {
+        try
+        {
+            if (currentExifData == null || string.IsNullOrEmpty(currentImagePath))
+            {
+                await DisplayAlert("Error", "No image selected", "OK");
+                return;
+            }
+
+            var artist = await DisplayPromptAsync("Artist", "Enter artist/photographer name:", initialValue: currentExifData.Artist ?? "");
+            if (string.IsNullOrEmpty(artist)) return;
+
+            var copyright = await DisplayPromptAsync("Copyright", "Enter copyright information:", initialValue: currentExifData.Copyright ?? $"© {DateTime.Now.Year} {artist}");
+            if (string.IsNullOrEmpty(copyright)) return;
+
+            var description = await DisplayPromptAsync("Description", "Enter image description:", initialValue: currentExifData.ImageDescription ?? "");
+
+            // Update EXIF data with new metadata
+            var updatedExifData = currentExifData.WithMetadata(artist, copyright, description);
+
+            var success = await exif.WriteToFileAsync(currentImagePath, updatedExifData);
+            
+            if (success)
+            {
+                currentExifData = updatedExifData;
+                DisplayExifData(currentExifData);
+                await DisplayAlert("Success", "Copyright information updated successfully!", "OK");
+            }
+            else
+            {
+                await DisplayAlert("Error", "Failed to update EXIF data. This feature may not be supported on this platform.", "OK");
+            }
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Error", $"Failed to update copyright: {ex.Message}", "OK");
+        }
+    }
+
+    private async void OnRemoveGpsClicked(object sender, EventArgs e)
+    {
+        try
+        {
+            if (currentExifData == null || string.IsNullOrEmpty(currentImagePath))
+            {
+                await DisplayAlert("Error", "No image selected", "OK");
+                return;
+            }
+
+            if (!currentExifData.HasGpsCoordinates())
+            {
+                await DisplayAlert("Info", "This image doesn't contain GPS data.", "OK");
+                return;
+            }
+
+            var confirmed = await DisplayAlert("Remove GPS", "Are you sure you want to remove GPS coordinates from this image?", "Yes", "No");
+            if (!confirmed) return;
+
+            // Remove GPS coordinates for privacy
+            var updatedExifData = currentExifData.WithoutGpsCoordinates();
+
+            var success = await exif.WriteToFileAsync(currentImagePath, updatedExifData);
+            
+            if (success)
+            {
+                currentExifData = updatedExifData;
+                DisplayExifData(currentExifData);
+                await DisplayAlert("Success", "GPS data removed successfully!", "OK");
+            }
+            else
+            {
+                await DisplayAlert("Error", "Failed to remove GPS data. This feature may not be supported on this platform.", "OK");
+            }
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Error", $"Failed to remove GPS data: {ex.Message}", "OK");
+        }
+    }
+
+    private async void OnUpdateCameraClicked(object sender, EventArgs e)
+    {
+        try
+        {
+            if (currentExifData == null || string.IsNullOrEmpty(currentImagePath))
+            {
+                await DisplayAlert("Error", "No image selected", "OK");
+                return;
+            }
+
+            var make = await DisplayPromptAsync("Camera Make", "Enter camera manufacturer:", initialValue: currentExifData.Make ?? "");
+            if (string.IsNullOrEmpty(make)) return;
+
+            var model = await DisplayPromptAsync("Camera Model", "Enter camera model:", initialValue: currentExifData.Model ?? "");
+            if (string.IsNullOrEmpty(model)) return;
+
+            // Update camera information
+            var updatedExifData = currentExifData.WithCameraInfo(make, model);
+
+            var success = await exif.WriteToFileAsync(currentImagePath, updatedExifData);
+            
+            if (success)
+            {
+                currentExifData = updatedExifData;
+                DisplayExifData(currentExifData);
+                await DisplayAlert("Success", "Camera information updated successfully!", "OK");
+            }
+            else
+            {
+                await DisplayAlert("Error", "Failed to update camera information. This feature may not be supported on this platform.", "OK");
+            }
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Error", $"Failed to update camera info: {ex.Message}", "OK");
+        }
     }
 }

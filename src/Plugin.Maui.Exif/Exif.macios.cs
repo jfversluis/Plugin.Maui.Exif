@@ -322,7 +322,9 @@ partial class ExifImplementation : IExif
                     return false;
                 }
 
-                using var destinationUrl = NSUrl.FromFilename(filePath);
+                // Create a temporary file to avoid corruption during write
+                var tempFilePath = $"{filePath}.tmp";
+                using var destinationUrl = NSUrl.FromFilename(tempFilePath);
                 using var destination = CGImageDestination.Create(destinationUrl, sourceImageSource.TypeIdentifier, 1);
                 
                 if (destination is null)
@@ -333,7 +335,25 @@ partial class ExifImplementation : IExif
                 var properties = CreateImageProperties(exifData);
                 destination.AddImage(image, properties);
                 
-                return destination.Close();
+                if (destination.Close())
+                {
+                    // Replace original file with the temporary file
+                    if (File.Exists(filePath))
+                    {
+                        File.Delete(filePath);
+                    }
+                    File.Move(tempFilePath, filePath);
+                    return true;
+                }
+                else
+                {
+                    // Clean up temporary file on failure
+                    if (File.Exists(tempFilePath))
+                    {
+                        File.Delete(tempFilePath);
+                    }
+                    return false;
+                }
             }
             catch (Exception)
             {
