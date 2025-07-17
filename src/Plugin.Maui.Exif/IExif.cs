@@ -48,4 +48,21 @@ public interface IExif
     /// <param name="stream">The stream containing the image data.</param>
     /// <returns>True if the stream contains GPS metadata, false otherwise.</returns>
     Task<bool> HasGpsDataAsync(Stream stream);
+
+    /// <summary>
+    /// Writes EXIF metadata to an image file.
+    /// </summary>
+    /// <param name="filePath">The path to the image file.</param>
+    /// <param name="exifData">The EXIF data to write.</param>
+    /// <returns>True if the operation was successful, false otherwise.</returns>
+    Task<bool> WriteToFileAsync(string filePath, ExifData exifData);
+
+    /// <summary>
+    /// Writes EXIF metadata to an image stream and outputs the result to another stream.
+    /// </summary>
+    /// <param name="inputStream">The input stream containing the original image data.</param>
+    /// <param name="outputStream">The output stream to write the image with EXIF data.</param>
+    /// <param name="exifData">The EXIF data to write.</param>
+    /// <returns>True if the operation was successful, false otherwise.</returns>
+    Task<bool> WriteToStreamAsync(Stream inputStream, Stream outputStream, ExifData exifData);
 }

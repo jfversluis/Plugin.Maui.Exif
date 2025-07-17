@@ -384,4 +384,175 @@ partial class ExifImplementation : IExif
             }
         }
     }
+
+    public async Task<bool> WriteToFileAsync(string filePath, ExifData exifData)
+    {
+        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath) || exifData is null)
+        {
+            return false;
+        }
+
+        return await Task.Run(() =>
+        {
+            try
+            {
+                var exifInterface = new ExifInterface(filePath);
+                WriteExifData(exifInterface, exifData);
+                exifInterface.SaveAttributes();
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        });
+    }
+
+    public async Task<bool> WriteToStreamAsync(Stream inputStream, Stream outputStream, ExifData exifData)
+    {
+        if (inputStream is null || outputStream is null || exifData is null)
+        {
+            return false;
+        }
+
+        return await Task.Run(() =>
+        {
+            try
+            {
+                // For streams, we need to copy the input to output and then modify the output
+                inputStream.Position = 0;
+                inputStream.CopyTo(outputStream);
+                outputStream.Position = 0;
+
+                var exifInterface = new ExifInterface(outputStream);
+                WriteExifData(exifInterface, exifData);
+                exifInterface.SaveAttributes();
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        });
+    }
+
+    private static void WriteExifData(ExifInterface exifInterface, ExifData exifData)
+    {
+        // Basic image properties
+        if (!string.IsNullOrEmpty(exifData.Make))
+        {
+            exifInterface.SetAttribute(ExifInterface.TagMake, exifData.Make);
+        }
+
+        if (!string.IsNullOrEmpty(exifData.Model))
+        {
+            exifInterface.SetAttribute(ExifInterface.TagModel, exifData.Model);
+        }
+
+        if (!string.IsNullOrEmpty(exifData.Software))
+        {
+            exifInterface.SetAttribute(ExifInterface.TagSoftware, exifData.Software);
+        }
+
+        if (!string.IsNullOrEmpty(exifData.Copyright))
+        {
+            exifInterface.SetAttribute(ExifInterface.TagCopyright, exifData.Copyright);
+        }
+
+        if (!string.IsNullOrEmpty(exifData.ImageDescription))
+        {
+            exifInterface.SetAttribute(ExifInterface.TagImageDescription, exifData.ImageDescription);
+        }
+
+        if (!string.IsNullOrEmpty(exifData.Artist))
+        {
+            exifInterface.SetAttribute(ExifInterface.TagArtist, exifData.Artist);
+        }
+
+        // Date taken
+        if (exifData.DateTaken.HasValue)
+        {
+            var dateString = exifData.DateTaken.Value.ToString("yyyy:MM:dd HH:mm:ss", CultureInfo.InvariantCulture);
+            exifInterface.SetAttribute(ExifInterface.TagDatetimeOriginal, dateString);
+            exifInterface.SetAttribute(ExifInterface.TagDatetime, dateString);
+        }
+
+        // Image dimensions
+        if (exifData.Width.HasValue)
+        {
+            exifInterface.SetAttribute(ExifInterface.TagImageWidth, exifData.Width.Value.ToString());
+        }
+
+        if (exifData.Height.HasValue)
+        {
+            exifInterface.SetAttribute(ExifInterface.TagImageLength, exifData.Height.Value.ToString());
+        }
+
+        // Orientation
+        if (exifData.Orientation.HasValue)
+        {
+            exifInterface.SetAttribute(ExifInterface.TagOrientation, ((int)exifData.Orientation.Value).ToString());
+        }
+
+        // Camera settings
+        if (exifData.FocalLength.HasValue)
+        {
+            exifInterface.SetAttribute(ExifInterface.TagFocalLength, exifData.FocalLength.Value.ToString(CultureInfo.InvariantCulture));
+        }
+
+        if (exifData.FNumber.HasValue)
+        {
+            exifInterface.SetAttribute(ExifInterface.TagFNumber, exifData.FNumber.Value.ToString(CultureInfo.InvariantCulture));
+        }
+
+        if (exifData.Iso.HasValue)
+        {
+            exifInterface.SetAttribute(ExifInterface.TagIsoSpeed, exifData.Iso.Value.ToString());
+        }
+
+        if (exifData.ExposureTime.HasValue)
+        {
+            // Convert decimal to fraction format for exposure time
+            var fraction = DecimalToFraction(exifData.ExposureTime.Value);
+            exifInterface.SetAttribute(ExifInterface.TagExposureTime, fraction);
+        }
+
+        if (exifData.Flash.HasValue)
+        {
+            exifInterface.SetAttribute(ExifInterface.TagFlash, ((int)exifData.Flash.Value).ToString());
+        }
+
+        // GPS data
+        if (exifData.Latitude.HasValue && exifData.Longitude.HasValue)
+        {
+            exifInterface.SetLatLong(exifData.Latitude.Value, exifData.Longitude.Value);
+        }
+
+        if (exifData.Altitude.HasValue)
+        {
+            exifInterface.SetAltitude(exifData.Altitude.Value);
+        }
+
+        // Write custom tags from AllTags dictionary
+        foreach (var tag in exifData.AllTags)
+        {
+            if (!string.IsNullOrEmpty(tag.Key) && tag.Value is not null)
+            {
+                exifInterface.SetAttribute(tag.Key, tag.Value.ToString());
+            }
+        }
+    }
+
+    private static string DecimalToFraction(double value)
+    {
+        // Simple fraction conversion for exposure time
+        if (value >= 1)
+        {
+            return value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        // For values less than 1, express as 1/x
+        var denominator = Math.Round(1.0 / value);
+        return $"1/{denominator}";
+    }
 }

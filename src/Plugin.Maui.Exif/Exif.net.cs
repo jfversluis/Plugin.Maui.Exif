@@ -33,4 +33,14 @@ partial class ExifImplementation : IExif
     {
         throw new NotImplementedException("EXIF reading is not supported on this platform. This plugin requires iOS, Android, or Windows.");
     }
+
+    public Task<bool> WriteToFileAsync(string filePath, ExifData exifData)
+    {
+        throw new NotImplementedException("EXIF writing is not supported on this platform. This plugin requires iOS, Android, or Windows.");
+    }
+
+    public Task<bool> WriteToStreamAsync(Stream inputStream, Stream outputStream, ExifData exifData)
+    {
+        throw new NotImplementedException("EXIF writing is not supported on this platform. This plugin requires iOS, Android, or Windows.");
+    }
 }
