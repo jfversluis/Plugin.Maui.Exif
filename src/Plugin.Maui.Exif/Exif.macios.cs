@@ -296,4 +296,240 @@ partial class ExifImplementation : IExif
             _ => nsObject?.ToString()
         };
     }
+
+    public async Task<bool> WriteToFileAsync(string filePath, ExifData exifData)
+    {
+        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath) || exifData is null)
+        {
+            return false;
+        }
+
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var sourceUrl = NSUrl.FromFilename(filePath);
+                using var sourceImageSource = CGImageSource.FromUrl(sourceUrl);
+                
+                if (sourceImageSource is null)
+                {
+                    return false;
+                }
+
+                using var image = sourceImageSource.CreateImage(0, null!);
+                if (image is null)
+                {
+                    return false;
+                }
+
+                // Create a temporary file to avoid corruption during write
+                var tempFilePath = $"{filePath}.tmp";
+                using var destinationUrl = NSUrl.FromFilename(tempFilePath);
+                using var destination = CGImageDestination.Create(destinationUrl, sourceImageSource.TypeIdentifier!, 1);
+                
+                if (destination is null)
+                {
+                    return false;
+                }
+
+                var properties = CreateImageProperties(exifData);
+                destination.AddImage(image, properties);
+                
+                if (destination.Close())
+                {
+                    // Replace original file with the temporary file
+                    if (File.Exists(filePath))
+                    {
+                        File.Delete(filePath);
+                    }
+                    File.Move(tempFilePath, filePath);
+                    return true;
+                }
+                else
+                {
+                    // Clean up temporary file on failure
+                    if (File.Exists(tempFilePath))
+                    {
+                        File.Delete(tempFilePath);
+                    }
+                    return false;
+                }
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        });
+    }
+
+    public async Task<bool> WriteToStreamAsync(Stream inputStream, Stream outputStream, ExifData exifData)
+    {
+        if (inputStream is null || outputStream is null || exifData is null)
+        {
+            return false;
+        }
+
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var inputData = NSData.FromStream(inputStream);
+                if (inputData is null)
+                {
+                    return false;
+                }
+
+                using var sourceImageSource = CGImageSource.FromData(inputData);
+                if (sourceImageSource is null)
+                {
+                    return false;
+                }
+
+                using var image = sourceImageSource.CreateImage(0, null!);
+                if (image is null)
+                {
+                    return false;
+                }
+
+                using var outputData = new NSMutableData();
+                using var destination = CGImageDestination.Create(outputData, sourceImageSource.TypeIdentifier!, 1);
+                
+                if (destination is null)
+                {
+                    return false;
+                }
+
+                var properties = CreateImageProperties(exifData);
+                destination.AddImage(image, properties);
+                
+                if (!destination.Close())
+                {
+                    return false;
+                }
+
+                // Copy the output data to the output stream
+                outputData.AsStream().CopyTo(outputStream);
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        });
+    }
+
+    private static NSDictionary CreateImageProperties(ExifData exifData)
+    {
+        var properties = new NSMutableDictionary();
+        
+        // Create EXIF dictionary
+        var exifDict = new NSMutableDictionary();
+        
+        if (exifData.DateTaken.HasValue)
+        {
+            var dateString = exifData.DateTaken.Value.ToString("yyyy:MM:dd HH:mm:ss", CultureInfo.InvariantCulture);
+            exifDict.SetValueForKey(new NSString(dateString), new NSString("DateTimeOriginal"));
+        }
+
+        if (exifData.FocalLength.HasValue)
+        {
+            exifDict.SetValueForKey(NSNumber.FromDouble(exifData.FocalLength.Value), new NSString("FocalLength"));
+        }
+
+        if (exifData.FNumber.HasValue)
+        {
+            exifDict.SetValueForKey(NSNumber.FromDouble(exifData.FNumber.Value), new NSString("FNumber"));
+        }
+
+        if (exifData.Iso.HasValue)
+        {
+            var isoArray = NSArray.FromNSObjects(NSNumber.FromInt32(exifData.Iso.Value));
+            exifDict.SetValueForKey(isoArray, new NSString("ISOSpeedRatings"));
+        }
+
+        if (exifData.ExposureTime.HasValue)
+        {
+            exifDict.SetValueForKey(NSNumber.FromDouble(exifData.ExposureTime.Value), new NSString("ExposureTime"));
+        }
+
+        if (exifData.Flash.HasValue)
+        {
+            exifDict.SetValueForKey(NSNumber.FromInt32((int)exifData.Flash.Value), new NSString("Flash"));
+        }
+
+        properties.SetValueForKey(exifDict, new NSString("{Exif}"));
+
+        // Create TIFF dictionary
+        var tiffDict = new NSMutableDictionary();
+
+        if (!string.IsNullOrEmpty(exifData.Make))
+        {
+            tiffDict.SetValueForKey(new NSString(exifData.Make), CGImageProperties.TIFFMake);
+        }
+
+        if (!string.IsNullOrEmpty(exifData.Model))
+        {
+            tiffDict.SetValueForKey(new NSString(exifData.Model), CGImageProperties.TIFFModel);
+        }
+
+        if (!string.IsNullOrEmpty(exifData.Software))
+        {
+            tiffDict.SetValueForKey(new NSString(exifData.Software), CGImageProperties.TIFFSoftware);
+        }
+
+        if (!string.IsNullOrEmpty(exifData.Artist))
+        {
+            tiffDict.SetValueForKey(new NSString(exifData.Artist), CGImageProperties.TIFFArtist);
+        }
+
+        if (!string.IsNullOrEmpty(exifData.ImageDescription))
+        {
+            tiffDict.SetValueForKey(new NSString(exifData.ImageDescription), CGImageProperties.TIFFImageDescription);
+        }
+
+        if (!string.IsNullOrEmpty(exifData.Copyright))
+        {
+            tiffDict.SetValueForKey(new NSString(exifData.Copyright), new NSString("Copyright"));
+        }
+
+        properties.SetValueForKey(tiffDict, new NSString("{TIFF}"));
+
+        // Create GPS dictionary
+        if (exifData.Latitude.HasValue && exifData.Longitude.HasValue)
+        {
+            var gpsDict = new NSMutableDictionary();
+
+            gpsDict.SetValueForKey(NSNumber.FromDouble(Math.Abs(exifData.Latitude.Value)), CGImageProperties.GPSLatitude);
+            gpsDict.SetValueForKey(new NSString(exifData.Latitude.Value >= 0 ? "N" : "S"), CGImageProperties.GPSLatitudeRef);
+
+            gpsDict.SetValueForKey(NSNumber.FromDouble(Math.Abs(exifData.Longitude.Value)), CGImageProperties.GPSLongitude);
+            gpsDict.SetValueForKey(new NSString(exifData.Longitude.Value >= 0 ? "E" : "W"), CGImageProperties.GPSLongitudeRef);
+
+            if (exifData.Altitude.HasValue)
+            {
+                gpsDict.SetValueForKey(NSNumber.FromDouble(Math.Abs(exifData.Altitude.Value)), CGImageProperties.GPSAltitude);
+                gpsDict.SetValueForKey(NSNumber.FromInt32(exifData.Altitude.Value >= 0 ? 0 : 1), CGImageProperties.GPSAltitudeRef);
+            }
+
+            properties.SetValueForKey(gpsDict, new NSString("{GPS}"));
+        }
+
+        // Set image dimensions and orientation
+        if (exifData.Width.HasValue)
+        {
+            properties.SetValueForKey(NSNumber.FromInt32(exifData.Width.Value), CGImageProperties.PixelWidth);
+        }
+
+        if (exifData.Height.HasValue)
+        {
+            properties.SetValueForKey(NSNumber.FromInt32(exifData.Height.Value), CGImageProperties.PixelHeight);
+        }
+
+        if (exifData.Orientation.HasValue)
+        {
+            properties.SetValueForKey(NSNumber.FromInt32((int)exifData.Orientation.Value), CGImageProperties.Orientation);
+        }
+
+        return properties;
+    }
 }

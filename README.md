@@ -7,6 +7,7 @@ Learn more about this plugin in [this video](https://youtu.be/plT4Tsd6ORI).
 ## Features
 
 - Read EXIF metadata from image files and streams
+- Write EXIF metadata to image files and streams
 - Extract common metadata like camera make/model, date taken, GPS coordinates, camera settings
 - Cross-platform support (iOS, macOS Catalyst, Android, Windows)
 - Easy-to-use API with both static and dependency injection patterns
@@ -68,6 +69,55 @@ if (exifData != null)
 ```csharp
 using var stream = File.OpenRead("path/to/image.jpg");
 var exifData = await Exif.Default.ReadFromStreamAsync(stream);
+```
+
+### Writing EXIF Data
+
+```csharp
+// Create or modify EXIF data
+var exifData = new ExifData
+{
+    Make = "Canon",
+    Model = "EOS R5",
+    DateTaken = DateTime.Now,
+    Artist = "John Doe",
+    Copyright = "© 2024 John Doe",
+    Latitude = 37.7749,
+    Longitude = -122.4194
+};
+
+// Write to file
+var success = await Exif.Default.WriteToFileAsync("path/to/image.jpg", exifData);
+
+// Write to stream
+using var inputStream = File.OpenRead("input.jpg");
+using var outputStream = File.Create("output.jpg");
+var success = await Exif.Default.WriteToStreamAsync(inputStream, outputStream, exifData);
+```
+
+### Fluent API for Writing
+
+```csharp
+// Read existing EXIF data and modify it using extension methods
+var originalExifData = await Exif.Default.ReadFromFileAsync("path/to/image.jpg");
+
+if (originalExifData != null)
+{
+    var updatedExifData = originalExifData
+        .WithCameraInfo("Canon", "EOS R5")
+        .WithGpsCoordinates(37.7749, -122.4194)
+        .WithMetadata("John Doe", "© 2024 John Doe", "Beautiful sunset")
+        .WithDateTaken(DateTime.Now);
+
+    await Exif.Default.WriteToFileAsync("path/to/image.jpg", updatedExifData);
+}
+
+// Remove GPS coordinates for privacy
+var exifWithoutGps = originalExifData?.WithoutGpsCoordinates();
+if (exifWithoutGps != null)
+{
+    await Exif.Default.WriteToFileAsync("path/to/image.jpg", exifWithoutGps);
+}
 ```
 
 ### Extension Methods
@@ -165,14 +215,15 @@ No special permissions required.
 The repository includes a sample app demonstrating how to:
 - Select images using FilePicker
 - Read and display EXIF metadata
+- Write and modify EXIF metadata
 - Show formatted camera settings and GPS information
 - Display all available EXIF tags
 
 ## Future Enhancements
 
-- Writing EXIF metadata (planned for future versions)
 - Additional metadata formats support
 - Batch processing capabilities
+- Advanced EXIF tag manipulation
 
 ## Contributing
 

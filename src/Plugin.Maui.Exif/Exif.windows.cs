@@ -4,6 +4,7 @@ using Windows.Storage;
 using Windows.Storage.Streams;
 using System.Globalization;
 using Windows.Foundation;
+using Windows.Foundation.Collections;
 
 namespace Plugin.Maui.Exif;
 
@@ -318,5 +319,243 @@ partial class ExifImplementation : IExif
             PropertyType.StringArray => typedValue.Value,
             _ => typedValue.Value?.ToString()
         };
+    }
+
+    public async Task<bool> WriteToFileAsync(string filePath, ExifData exifData)
+    {
+        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath) || exifData is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            var file = await StorageFile.GetFileFromPathAsync(filePath);
+            
+            // Read the original image
+            using var inputStream = await file.OpenAsync(FileAccessMode.Read);
+            var decoder = await BitmapDecoder.CreateAsync(inputStream);
+            
+            // Create a temporary file for writing
+            var parentFolder = await file.GetParentAsync();
+            var tempFile = await parentFolder.CreateFileAsync($"{file.Name}.tmp", 
+                CreationCollisionOption.ReplaceExisting);
+            
+            try
+            {
+                using var outputStream = await tempFile.OpenAsync(FileAccessMode.ReadWrite);
+                var success = await WriteImageWithExifData(decoder, outputStream, exifData);
+                
+                if (success)
+                {
+                    // Replace the original file with the temporary file
+                    await tempFile.MoveAndReplaceAsync(file);
+                    return true;
+                }
+                else
+                {
+                    await tempFile.DeleteAsync();
+                    return false;
+                }
+            }
+            catch
+            {
+                try
+                {
+                    await tempFile.DeleteAsync();
+                }
+                catch
+                {
+                    // Ignore cleanup errors
+                }
+                return false;
+            }
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> WriteToStreamAsync(Stream inputStream, Stream outputStream, ExifData exifData)
+    {
+        if (inputStream is null || outputStream is null || exifData is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            using var randomAccessInputStream = inputStream.AsRandomAccessStream();
+            var decoder = await BitmapDecoder.CreateAsync(randomAccessInputStream);
+            
+            using var randomAccessOutputStream = outputStream.AsRandomAccessStream();
+            return await WriteImageWithExifData(decoder, randomAccessOutputStream, exifData);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    private static async Task<bool> WriteImageWithExifData(BitmapDecoder decoder, IRandomAccessStream outputStream, ExifData exifData)
+    {
+        try
+        {
+            // Get the encoder ID based on the original format
+            var encoderId = GetEncoderIdFromDecoder(decoder);
+            
+            var encoder = await BitmapEncoder.CreateAsync(encoderId, outputStream);
+            
+            // Get the pixel data from the original image
+            var pixelDataProvider = await decoder.GetPixelDataAsync();
+            var pixelData = pixelDataProvider.DetachPixelData();
+            
+            // Set the pixel data
+            encoder.SetPixelData(
+                decoder.BitmapPixelFormat,
+                decoder.BitmapAlphaMode,
+                decoder.PixelWidth,
+                decoder.PixelHeight,
+                decoder.DpiX,
+                decoder.DpiY,
+                pixelData);
+
+            // Set EXIF properties
+            await SetExifProperties(encoder.BitmapProperties, exifData);
+            
+            await encoder.FlushAsync();
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    private static Guid GetEncoderIdFromDecoder(BitmapDecoder decoder)
+    {
+        // Map decoder codec IDs to encoder codec IDs
+        return decoder.DecoderInformation.CodecId switch
+        {
+            _ when decoder.DecoderInformation.CodecId == BitmapDecoder.JpegDecoderId => BitmapEncoder.JpegEncoderId,
+            _ when decoder.DecoderInformation.CodecId == BitmapDecoder.PngDecoderId => BitmapEncoder.PngEncoderId,
+            _ when decoder.DecoderInformation.CodecId == BitmapDecoder.TiffDecoderId => BitmapEncoder.TiffEncoderId,
+            _ when decoder.DecoderInformation.CodecId == BitmapDecoder.BmpDecoderId => BitmapEncoder.BmpEncoderId,
+            _ => BitmapEncoder.JpegEncoderId // Default to JPEG
+        };
+    }
+
+    private static async Task SetExifProperties(BitmapProperties properties, ExifData exifData)
+    {
+        var propertiesToSet = new Dictionary<string, object>();
+
+        // Basic properties
+        if (!string.IsNullOrEmpty(exifData.Make))
+        {
+            propertiesToSet["System.Photo.CameraManufacturer"] = exifData.Make;
+        }
+
+        if (!string.IsNullOrEmpty(exifData.Model))
+        {
+            propertiesToSet["System.Photo.CameraModel"] = exifData.Model;
+        }
+
+        if (exifData.DateTaken.HasValue)
+        {
+            propertiesToSet["System.Photo.DateTaken"] = new DateTimeOffset(exifData.DateTaken.Value);
+        }
+
+        if (exifData.Orientation.HasValue)
+        {
+            propertiesToSet["System.Photo.Orientation"] = (ushort)exifData.Orientation.Value;
+        }
+
+        if (!string.IsNullOrEmpty(exifData.Software))
+        {
+            propertiesToSet["System.ApplicationName"] = exifData.Software;
+        }
+
+        if (!string.IsNullOrEmpty(exifData.Copyright))
+        {
+            propertiesToSet["System.Copyright"] = exifData.Copyright;
+        }
+
+        if (!string.IsNullOrEmpty(exifData.ImageDescription))
+        {
+            propertiesToSet["System.Comment"] = exifData.ImageDescription;
+        }
+
+        if (!string.IsNullOrEmpty(exifData.Artist))
+        {
+            propertiesToSet["System.Author"] = new string[] { exifData.Artist };
+        }
+
+        // Camera settings
+        if (exifData.FocalLength.HasValue)
+        {
+            propertiesToSet["System.Photo.FocalLength"] = exifData.FocalLength.Value;
+        }
+
+        if (exifData.FNumber.HasValue)
+        {
+            propertiesToSet["System.Photo.FNumber"] = exifData.FNumber.Value;
+        }
+
+        if (exifData.Iso.HasValue)
+        {
+            propertiesToSet["System.Photo.ISOSpeed"] = (ushort)exifData.Iso.Value;
+        }
+
+        if (exifData.ExposureTime.HasValue)
+        {
+            propertiesToSet["System.Photo.ExposureTime"] = exifData.ExposureTime.Value;
+        }
+
+        if (exifData.Flash.HasValue)
+        {
+            propertiesToSet["System.Photo.Flash"] = (byte)exifData.Flash.Value;
+        }
+
+        // GPS properties
+        if (exifData.Latitude.HasValue)
+        {
+            propertiesToSet["System.GPS.Latitude"] = new double[] { Math.Abs(exifData.Latitude.Value), 0, 0 };
+        }
+
+        if (exifData.Longitude.HasValue)
+        {
+            propertiesToSet["System.GPS.Longitude"] = new double[] { Math.Abs(exifData.Longitude.Value), 0, 0 };
+        }
+
+        if (exifData.Altitude.HasValue)
+        {
+            propertiesToSet["System.GPS.Altitude"] = exifData.Altitude.Value;
+        }
+
+        // Set all properties at once
+        try
+        {
+            var convertedProperties = propertiesToSet.Select(kvp => 
+                new KeyValuePair<string, BitmapTypedValue>(kvp.Key, 
+                    kvp.Value switch
+                    {
+                        string s => new BitmapTypedValue(s, PropertyType.String),
+                        int i => new BitmapTypedValue(i, PropertyType.Int32),
+                        uint ui => new BitmapTypedValue(ui, PropertyType.UInt32),
+                        ushort us => new BitmapTypedValue(us, PropertyType.UInt16),
+                        byte b => new BitmapTypedValue(b, PropertyType.UInt8),
+                        double d => new BitmapTypedValue(d, PropertyType.Double),
+                        DateTimeOffset dto => new BitmapTypedValue(dto, PropertyType.DateTime),
+                        double[] da => new BitmapTypedValue(da, PropertyType.DoubleArray),
+                        string[] sa => new BitmapTypedValue(sa, PropertyType.StringArray),
+                        _ => new BitmapTypedValue(kvp.Value, PropertyType.String)
+                    }));
+            await properties.SetPropertiesAsync(convertedProperties);
+        }
+        catch (Exception)
+        {
+            // Some properties might not be settable, continue anyway
+        }
     }
 }

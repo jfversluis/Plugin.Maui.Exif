@@ -54,6 +54,30 @@
                                FontFamily="Courier"
                                FontSize="12" />
                     </StackLayout>
+                    
+                    <StackLayout Margin="0,20,0,0" 
+                                 x:Name="WriteButtons"
+                                 IsVisible="False">
+                        <Label Text="EXIF Writing Options" 
+                               FontAttributes="Bold" 
+                               FontSize="16" 
+                               HorizontalOptions="Center" />
+                        
+                        <Button x:Name="AddCopyrightBtn" 
+                                Text="Add Copyright Info" 
+                                Clicked="OnAddCopyrightClicked" 
+                                Margin="0,5,0,0" />
+                        
+                        <Button x:Name="RemoveGpsBtn" 
+                                Text="Remove GPS Data" 
+                                Clicked="OnRemoveGpsClicked" 
+                                Margin="0,5,0,0" />
+                        
+                        <Button x:Name="UpdateCameraBtn" 
+                                Text="Update Camera Info" 
+                                Clicked="OnUpdateCameraClicked" 
+                                Margin="0,5,0,0" />
+                    </StackLayout>
                 </VerticalStackLayout>
             </Border>
 
