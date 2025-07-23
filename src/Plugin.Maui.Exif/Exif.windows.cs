@@ -90,8 +90,32 @@ partial class ExifImplementation : IExif
             await ExtractCameraProperties(properties, exifData);
             await ExtractGpsProperties(properties, exifData);
 
-            // Get all available properties
-            var allProperties = await properties.GetPropertiesAsync(new string[0]);
+            // Get all Standard properties
+            string[] allExifPropertyKeys = new[]
+            {
+                // Basic Properties
+                "System.Photo.CameraManufacturer",
+                "System.Photo.CameraModel",
+                "System.Photo.DateTaken",
+                "System.Photo.Orientation",
+                "System.ApplicationName",
+                "System.Copyright",
+                "System.Comment",
+                "System.Author",
+
+                // Camera Properties
+                "System.Photo.FocalLength",
+                "System.Photo.FNumber",
+                "System.Photo.ISOSpeed",
+                "System.Photo.ExposureTime",
+                "System.Photo.Flash",
+
+                // GPS Properties
+                "System.GPS.Latitude",
+                "System.GPS.Longitude",
+                "System.GPS.Altitude"
+            };
+            var allProperties = await properties.GetPropertiesAsync(allExifPropertyKeys);
             foreach (var property in allProperties)
             {
                 if (property.Value is not null)
