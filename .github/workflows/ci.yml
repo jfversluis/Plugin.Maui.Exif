@@ -29,3 +29,14 @@ jobs:
 
     - name: Build
       run: dotnet build src\Plugin.Maui.Exif.sln -c Release
+    
+    - name: Pack
+      run: dotnet pack src\Plugin.Maui.Exif.sln -c Release --no-build
+    
+    - name: Upload NuGet packages as artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: nuget-packages
+        path: |
+          src\Plugin.Maui.Exif\bin\Release\*.nupkg
+          src\Plugin.Maui.Exif\bin\Release\*.snupkg
