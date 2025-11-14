@@ -113,7 +113,10 @@ partial class ExifImplementation : IExif
                 // GPS Properties
                 "System.GPS.Latitude",
                 "System.GPS.Longitude",
-                "System.GPS.Altitude"
+                "System.GPS.Altitude",
+                "System.GPS.LatitudeRef",
+                "System.GPS.LongitudeRef",
+                "System.GPS.AltitudeRef"
             };
             var allProperties = await properties.GetPropertiesAsync(allExifPropertyKeys);
             foreach (var property in allProperties)
@@ -274,7 +277,10 @@ partial class ExifImplementation : IExif
         {
             "System.GPS.Latitude",
             "System.GPS.Longitude",
-            "System.GPS.Altitude"
+            "System.GPS.Altitude",
+            "System.GPS.LatitudeRef",
+            "System.GPS.LongitudeRef",
+            "System.GPS.AltitudeRef"
         };
 
         try
@@ -283,26 +289,50 @@ partial class ExifImplementation : IExif
 
             if (results.TryGetValue("System.GPS.Latitude", out var latitude))
             {
+                double? latValue = null;
                 if (latitude?.Value is double[] latArray && latArray.Length >= 3)
                 {
                     // Convert from degrees, minutes, seconds to decimal degrees
-                    exifData.Latitude = latArray[0] + latArray[1] / 60.0 + latArray[2] / 3600.0;
+                    latValue = latArray[0] + latArray[1] / 60.0 + latArray[2] / 3600.0;
                 }
-                else if (latitude?.Value is double latValue)
+                else if (latitude?.Value is double latDouble)
                 {
+                    latValue = latDouble;
+                }
+
+                if (latValue.HasValue)
+                {
+                    // Apply hemisphere reference (N/S)
+                    if (results.TryGetValue("System.GPS.LatitudeRef", out var latRef) && 
+                        latRef?.Value?.ToString() == "S")
+                    {
+                        latValue = -latValue.Value;
+                    }
                     exifData.Latitude = latValue;
                 }
             }
 
             if (results.TryGetValue("System.GPS.Longitude", out var longitude))
             {
+                double? lonValue = null;
                 if (longitude?.Value is double[] lonArray && lonArray.Length >= 3)
                 {
                     // Convert from degrees, minutes, seconds to decimal degrees
-                    exifData.Longitude = lonArray[0] + lonArray[1] / 60.0 + lonArray[2] / 3600.0;
+                    lonValue = lonArray[0] + lonArray[1] / 60.0 + lonArray[2] / 3600.0;
                 }
-                else if (longitude?.Value is double lonValue)
+                else if (longitude?.Value is double lonDouble)
                 {
+                    lonValue = lonDouble;
+                }
+
+                if (lonValue.HasValue)
+                {
+                    // Apply hemisphere reference (E/W)
+                    if (results.TryGetValue("System.GPS.LongitudeRef", out var lonRef) && 
+                        lonRef?.Value?.ToString() == "W")
+                    {
+                        lonValue = -lonValue.Value;
+                    }
                     exifData.Longitude = lonValue;
                 }
             }
@@ -311,6 +341,14 @@ partial class ExifImplementation : IExif
             {
                 if (altitude?.Value is double altValue)
                 {
+                    // Apply altitude reference (0 = above sea level, 1 = below sea level)
+                    if (results.TryGetValue("System.GPS.AltitudeRef", out var altRef))
+                    {
+                        if (altRef?.Value is byte altRefByte && altRefByte == 1)
+                        {
+                            altValue = -altValue;
+                        }
+                    }
                     exifData.Altitude = altValue;
                 }
             }
@@ -470,6 +508,17 @@ partial class ExifImplementation : IExif
         };
     }
 
+    private static double[] ConvertDecimalDegreesToDMS(double decimalDegrees)
+    {
+        // Convert decimal degrees to degrees, minutes, seconds format
+        var degrees = Math.Floor(decimalDegrees);
+        var minutesDecimal = (decimalDegrees - degrees) * 60;
+        var minutes = Math.Floor(minutesDecimal);
+        var seconds = (minutesDecimal - minutes) * 60;
+        
+        return new double[] { degrees, minutes, seconds };
+    }
+
     private static async Task SetExifProperties(BitmapProperties properties, ExifData exifData)
     {
         var propertiesToSet = new Dictionary<string, object>();
@@ -544,17 +593,22 @@ partial class ExifImplementation : IExif
         // GPS properties
         if (exifData.Latitude.HasValue)
         {
-            propertiesToSet["System.GPS.Latitude"] = new double[] { Math.Abs(exifData.Latitude.Value), 0, 0 };
+            var latDMS = ConvertDecimalDegreesToDMS(Math.Abs(exifData.Latitude.Value));
+            propertiesToSet["System.GPS.Latitude"] = latDMS;
+            propertiesToSet["System.GPS.LatitudeRef"] = exifData.Latitude.Value >= 0 ? "N" : "S";
         }
 
         if (exifData.Longitude.HasValue)
         {
-            propertiesToSet["System.GPS.Longitude"] = new double[] { Math.Abs(exifData.Longitude.Value), 0, 0 };
+            var lonDMS = ConvertDecimalDegreesToDMS(Math.Abs(exifData.Longitude.Value));
+            propertiesToSet["System.GPS.Longitude"] = lonDMS;
+            propertiesToSet["System.GPS.LongitudeRef"] = exifData.Longitude.Value >= 0 ? "E" : "W";
         }
 
         if (exifData.Altitude.HasValue)
         {
-            propertiesToSet["System.GPS.Altitude"] = exifData.Altitude.Value;
+            propertiesToSet["System.GPS.Altitude"] = Math.Abs(exifData.Altitude.Value);
+            propertiesToSet["System.GPS.AltitudeRef"] = exifData.Altitude.Value >= 0 ? (byte)0 : (byte)1;
         }
 
         // Set all properties at once
