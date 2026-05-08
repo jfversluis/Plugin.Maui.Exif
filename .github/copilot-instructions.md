@@ -1,17 +1,19 @@
-# $ Copilot InstructionsREPO 
+# Plugin.Maui.Exif - Copilot Instructions
 
 ## Project Overview
 
-This is a .NET MAUI plugin that provides the ability to read EXIF metadata from image files. It targets Android, iOS, macOS (Catalyst), Windows.
+This is a .NET MAUI plugin that provides the ability to read EXIF metadata from image files. It targets Android, iOS, macOS (Catalyst), and Windows.
 
-### Architecture
+## Architecture
 
-Core interface: ` ReadFromFileAsync, ReadFromStreamAsync, HasExifDataAsync, HasGpsDataAsync.IExif` 
+Core interface: `IExif` with `ReadFromFileAsync`, `ReadFromStreamAsync`, `HasExifDataAsync`, `HasGpsDataAsync`.
+
 Models: `ExifData`, `ImageOrientation`, `FlashMode`.
 
-- Android: ExifInterface
-- iOS/macOS: ImageIO CGImageSource
-- Windows: BitmapDecoder metadata
+Platform specifics:
+- Android: `ExifInterface`
+- iOS/macOS: ImageIO `CGImageSource`
+- Windows: `BitmapDecoder` metadata
 
 ## Code Conventions
 
@@ -19,11 +21,11 @@ Models: `ExifData`, `ImageOrientation`, `FlashMode`.
 All code uses: `Plugin.Maui.Exif`
 
 ### File Naming
-- `*.shared. Cross-platform codecs` 
-- `*.android. Androidcs` 
-- `*.macios. iOS/macOScs` 
-- `*.windows. Windowscs` 
-- `*.net. Generic .NET fallbackcs` 
+- `*.shared.cs` - Cross-platform code
+- `*.android.cs` - Android-specific code
+- `*.macios.cs` - iOS/macOS-specific code
+- `*.windows.cs` - Windows-specific code
+- `*.net.cs` - Generic .NET fallback
 
 ### Standards
 - File-scoped namespaces
