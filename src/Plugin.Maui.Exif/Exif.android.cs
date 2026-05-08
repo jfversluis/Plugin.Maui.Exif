@@ -419,15 +419,43 @@ partial class ExifImplementation : IExif
         {
             try
             {
-                // For streams, we need to copy the input to output and then modify the output
-                inputStream.Position = 0;
-                inputStream.CopyTo(outputStream);
-                outputStream.Position = 0;
+                // AndroidX ExifInterface.SaveAttributes() does not reliably persist changes
+                // when operating directly on streams. The workaround is to write to a
+                // temporary file, apply the EXIF modifications there, then copy the result
+                // to the output stream.
+                var tempFilePath = Path.Combine(Path.GetTempPath(), $"exif_temp_{Guid.NewGuid()}.jpg");
 
-                var exifInterface = new ExifInterface(outputStream);
-                WriteExifData(exifInterface, exifData);
-                exifInterface.SaveAttributes();
-                return true;
+                try
+                {
+                    // Write input stream to temp file
+                    inputStream.Position = 0;
+                    using (var fileStream = File.Create(tempFilePath))
+                    {
+                        inputStream.CopyTo(fileStream);
+                    }
+
+                    // Apply EXIF data using file-based ExifInterface (reliable)
+                    var exifInterface = new ExifInterface(tempFilePath);
+                    WriteExifData(exifInterface, exifData);
+                    exifInterface.SaveAttributes();
+
+                    // Copy the modified file to the output stream
+                    using (var resultStream = File.OpenRead(tempFilePath))
+                    {
+                        resultStream.CopyTo(outputStream);
+                    }
+
+                    outputStream.Position = 0;
+                    return true;
+                }
+                finally
+                {
+                    // Clean up temp file
+                    if (File.Exists(tempFilePath))
+                    {
+                        File.Delete(tempFilePath);
+                    }
+                }
             }
             catch (Exception)
             {
